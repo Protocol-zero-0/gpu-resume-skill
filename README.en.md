@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="GPU Resume: use cheaper GPUs for long experiments and resume after interruptions" width="880">
+  <img src="docs/banner.svg" alt="GPU Resume: checkpoint recovery for interruptible GPU jobs" width="880">
 </p>
 
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
@@ -9,56 +9,48 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-cbd5e1" alt="Apache 2.0 license"></a>
 </p>
 
-<p align="center"><strong>Run long experiments on cheaper, interruptible GPUs. Keep the work you have finished.</strong><br>
-Let your coding agent prepare long jobs for spot or temporary GPUs, with a path back from the last saved checkpoint.</p>
+# GPU Resume · Interrupted GPU. Resumable work.
 
-## Who this is for
+**A GPU checkpoint and recovery workflow for AI agents, powered by SkyPilot.**
 
-You are an individual researcher or a developer on a small ML team, already using
-Claude Code, Codex, or another coding agent to write and run experiments. A fine-tune,
-model evaluation, or batch inference job takes hours. You can wait for a GPU and
-repeat a little recent work, but you don't want to rebuild recovery scripts for
-every project or watch for failures all night.
+A long experiment should outlive the machine running it.
+GPU Resume connects application checkpoints, persistent storage, and resource rescheduling: when a GPU is reclaimed, the job waits for available resources and resumes from saved progress.
 
-GPU Resume gives your agent a reusable workflow: check whether the job can resume,
-plan checkpoints or input shards, prepare the job configuration, and connect it to
-SkyPilot's resource recovery. **It fits offline jobs that can wait and retry.**
+For LLM fine-tuning, model evaluation, and batch inference on Spot GPUs and temporary GPU capacity.
 
-## What it saves you
+## From restarting machines to recovering work
 
-| What happens today | The workflow after setup |
+SkyPilot handles resource scheduling and Managed Jobs recovery. The application tracks how far it has progressed.
+GPU Resume gives agents a workflow across both layers: inspect the code, add the recovery path, verify interruption behavior, then submit the job.
+
+```text
+Workload → Agent + GPU Resume → Resumable job → SkyPilot
+                                   │             │
+                           checkpoints / shards  GPU A
+                                   │             ↓ preemption
+                           persistent storage → GPU B
+                                               restore & resume
+```
+
+| Workload | Recovery path |
 | --- | --- |
-| A spot or temporary GPU is reclaimed halfway through a long run. | SkyPilot reschedules the job on connected resources; the workload reloads its durable progress. |
-| An evaluation or inference batch stops, leaving you unsure which inputs finished. | Have the agent organize independent shards and record completion so retries skip committed results. |
-| Every new project needs the same explanation of saving, restoring, and submitting work. | Install the skill once in your agent and reuse the workflow when adapting each workload. |
-| You change development machines or close the agent session. | Submitted jobs remain with the remote service; reconnect from another machine to inspect and manage them. |
+| LLM fine-tuning / model training | Restore model, optimizer, RNG, and data position |
+| Model evaluation / batch inference | Commit independent shards; skip completed work on retry |
+| Experiment batches | Keep separate state for each job and continue on available resources |
 
-A lower GPU rate helps only if interruptions don't keep wasting the computation
-you already paid for. This skill connects cheaper resource choices with preserving
-completed work. Actual savings depend on prices, checkpoint overhead, and recomputation.
+**State lives beyond the machine. Recovery belongs to the workload.** Checkpoints live outside the GPU host; the save interval determines the amount of work that may need repeating after an interruption.
 
-**The workload must support recovery.** Reuse its training checkpoints, or record
-completed shards when inputs can be processed independently. If the program only
-starts from zero, the agent must first add a recovery path. Store checkpoints and
-results outside the temporary GPU machine; installing a skill cannot make an
-arbitrary program resumable by itself.
+## Bring your agent
 
-## Start with your first workload
+The workflow is a Markdown skill; operations use the `gpu-resume` CLI. Neither interface is tied to a particular agent.
+Agents that can read instructions and execute terminal commands can load [SKILL.md](skills/gpu-resume/SKILL.md). Custom agents can expose the CLI through tool calling.
+The installer provides entries in `~/.agents/skills` and `~/.claude/skills`; other runtimes can use their own skill-loading mechanism.
 
-After installation, give your agent the code and a request such as:
+Give your agent the code and a recovery requirement:
 
-> Use gpu-resume to prepare this model evaluation for temporary GPUs. If a GPU
-> is reclaimed, waiting for the next one is fine. Keep completed inputs and allow
-> a few minutes of recomputation. Check how to split and save the work, then
-> verify that it can resume.
+> Prepare this evaluation as a resumable GPU job with gpu-resume. Skip completed shards and allow up to two minutes of lost progress. Adapt and verify recovery first, then generate the SkyPilot configuration.
 
-The agent examines your code to establish a recovery method and acceptable loss
-of recent work before launching a long job. **Actual submission also needs a
-reachable remote SkyPilot service, connected GPU resources, and independent
-persistent storage.** Your team can share these. See SkyPilot's
-[server deployment guide](https://docs.skypilot.ai/en/stable/reference/api-server/api-server.html).
-
-## Install
+## Quick start
 
 Requires Git, Python 3.12+, and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
@@ -69,13 +61,10 @@ python3 scripts/install.py
 gpu-resume self-test
 ```
 
-The installer pins the SkyPilot client and installs both this skill and the official
-SkyPilot skill into `~/.agents/skills` and `~/.claude/skills`. They are discoverable
-on the next turn or in a new session. Keep the checkout in its installed location
-and ensure `~/.local/bin` is on `PATH`.
-Installation does not provision GPUs, create storage, or start a local controller.
+The self-test terminates a local example process, restores its checkpoint, and verifies the completed computation.
+Keep the checkout in place, add `~/.local/bin` to `PATH`, and load the skills in a new agent session.
 
-Once a remote service is available:
+To submit a workload, configure a [remote SkyPilot service](https://docs.skypilot.ai/en/stable/reference/api-server/api-server.html), GPU resources, and independent persistent storage:
 
 ```bash
 gpu-resume connect https://YOUR_API_SERVER
@@ -85,48 +74,12 @@ gpu-resume queue
 gpu-resume logs JOB_ID --tail 100 --no-follow
 ```
 
-Without a remote service, `doctor` reports `setup_required` with exit code 2.
-The local `self-test` still works.
+Submitted jobs run under the remote service beyond the lifetime of the agent session. Without a connected service, `doctor` reports `setup_required`.
 
-## Test recovery before a long run
+## Engineering and documentation
 
-The [spot example](skills/gpu-resume/templates/spot-demo.yaml) and
-[SSH pool example](skills/gpu-resume/templates/ssh-demo.yaml) can exercise submission
-and recovery after you replace their GPU, pool, and storage settings. Their counter
-workload tests persistence; it does not train a model.
+- [Recovery contract and verification scope](docs/verification.md#english): checkpoints, idempotent commits, and first-deployment validation.
+- [Spot GPU template](skills/gpu-resume/templates/spot-demo.yaml) · [SSH pool template](skills/gpu-resume/templates/ssh-demo.yaml): replace resource and storage settings before use.
+- [SkyPilot](https://github.com/skypilot-org/skypilot) · [Official agent skill](https://github.com/skypilot-org/skypilot/tree/v0.14.0/agent/skills/skypilot): upstream resource orchestration.
 
-Local CPU process termination and checkpoint recovery have been verified, including
-correct final output. Actual GPU replacement, remote controller recovery, and S3
-access still need integration testing. Interrupt and recover your own workload
-before relying on it for long experiments. For training, also verify optimizer,
-RNG, and data-position restoration.
-
-## Why Python
-
-The skill itself is Markdown. Python supports the installer, CLI helpers, and
-recovery example. The current implementation calls the
-[official SkyPilot Python client](https://github.com/skypilot-org/skypilot/blob/v0.14.0/setup.py),
-and the intended users' training and evaluation environments typically already
-include Python. The helpers therefore avoid adding another runtime.
-
-TypeScript could implement the same functionality through the CLI or remote API.
-Keeping the current CLI integration in TypeScript would still require SkyPilot's
-Python client, plus Node.js. A standalone `npx` distribution or web interface could
-justify a TypeScript client that talks directly to the remote API. For the present
-workflow, Python keeps installation and maintenance smaller.
-
-## Updates and maintenance
-
-```bash
-gpu-resume check-updates
-```
-
-This project reuses [SkyPilot](https://github.com/skypilot-org/skypilot) and its
-[official skill](https://github.com/skypilot-org/skypilot/tree/v0.14.0/agent/skills/skypilot).
-Upstream manages resources and the lifecycle of managed jobs. This repository
-maintains the workload-recovery workflow and small supporting scripts.
-
-A weekly GitHub workflow checks upstream releases without upgrading the runtime.
-Update the [lock](skills/gpu-resume/upstream.lock.json), verify client/server
-compatibility and recovery, then switch. Retain the previous version and deployment
-state for rollback.
+The client and upstream skill are [version-pinned](skills/gpu-resume/upstream.lock.json). Weekly checks report new releases; upgrades follow validation. Run `gpu-resume check-updates` for a manual check.

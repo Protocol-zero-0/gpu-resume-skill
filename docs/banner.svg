@@ -10,7 +10,7 @@
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="58" y="72" fill="#7dd3fc" font-size="13" font-weight="700" letter-spacing="3">POWERED BY SKYPILOT</text>
     <text x="55" y="143" fill="#f1f5f9" font-size="59" font-weight="700" letter-spacing="-2">GPU Resume</text>
-    <text x="58" y="183" fill="#a8b8cd" font-size="19">Cheaper GPUs. Resume after interruptions.</text>
+    <text x="58" y="183" fill="#a8b8cd" font-size="19">Interrupted GPU. Resumable work.</text>
     <rect x="58" y="216" width="189" height="30" rx="15" fill="#143040"/>
     <text x="75" y="236" fill="#7dd3fc" font-size="12" letter-spacing="1">AGENT SKILL + TEMPLATES</text>
     <path d="M632 147h110" stroke="#38bdf8" stroke-width="3"/>
