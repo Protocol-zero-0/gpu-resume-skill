@@ -1,6 +1,6 @@
 ---
 name: gpu-resume
-description: Prepare, submit, and recover checkpointed GPU training or batch jobs on intermittent or spot resources using SkyPilot. Use for interruptible GPU workloads, resuming work on a replacement GPU, or connecting a new machine to the shared GPU service.
+description: Help researchers and small ML teams prepare fine-tuning, evaluation, and batch inference jobs for spot or temporary GPUs using SkyPilot. Use when a long job must preserve progress across GPU reclamation, resume on a replacement worker, or connect a new machine to the shared GPU service.
 ---
 
 # Resumable GPU jobs

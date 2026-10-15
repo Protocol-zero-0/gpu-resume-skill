@@ -1,27 +1,49 @@
 <p align="center">
-  <img src="docs/banner.zh.svg" alt="GPU Resume：GPU 随时中断，进度持续保存" width="880">
+  <img src="docs/banner.zh.svg" alt="GPU Resume：用便宜的 GPU 跑长实验，中断后接着跑" width="880">
 </p>
 
 <p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
 
 <p align="center">
   <a href="https://github.com/Protocol-zero-0/gpu-resume-skill/actions/workflows/checks.yml"><img src="https://github.com/Protocol-zero-0/gpu-resume-skill/actions/workflows/checks.yml/badge.svg" alt="自动检查"></a>
-  <img src="https://img.shields.io/badge/SkyPilot-0.14.0-38bdf8" alt="SkyPilot 0.14.0">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-cbd5e1" alt="Apache 2.0 许可证"></a>
 </p>
 
-<p align="center"><strong>让 GPU 任务能够中断、等待资源，再接着跑。</strong><br>
-基于 SkyPilot，用一个轻量 skill 补齐任务的进度保存与恢复流程。</p>
+<p align="center"><strong>用便宜、可中断的 GPU 跑长实验，保住已经完成的工作。</strong><br>
+让 coding agent 帮你把长任务准备成可恢复的实验，使用 Spot 或临时 GPU，中断后从已保存的进度继续。</p>
 
-## 工作方式
+## 为谁准备
 
-| 资源恢复 | 进度恢复 | 统一调用入口 |
-| --- | --- | --- |
-| GPU 被回收后，SkyPilot 寻找可用资源并重新启动托管任务。 | 任务读取 checkpoint（检查点），或跳过已完成的数据分片。 | 不同服务器上的 agent 连接同一个远程 API 服务。 |
+面向已经用 Claude Code、Codex 等 coding agent 跑实验的个人研究者和小型 ML 团队。
+微调、评测或批量推理要跑几个小时；你能等待 GPU、接受少量重算，但不想反复写恢复脚本，
+或整夜盯着任务重启。
 
-仓库包含一个轻量 skill、两类任务模板、安装脚本和 checkpoint 示例。
-安装时还会接入固定版本的 SkyPilot 官方 skill，调度能力直接复用上游。
-安装过程不会创建云资源，也不会启动本地控制服务。
+让 agent 检查任务如何续跑、安排 checkpoint 或分片、生成配置，并接入 SkyPilot 的恢复能力。
+**适合能够等待、重试的离线任务。**
+
+## 你能省下什么
+
+| 你遇到的事 | 接入后的流程 |
+| --- | --- |
+| Spot 或临时 GPU 被回收，长任务半途停止 | SkyPilot 在已接入的资源中重新安排任务，任务读取持久保存的进度继续执行。 |
+| 评测或批量推理中断，分不清哪些输入已经做完 | 让 agent 按独立分片组织任务并记录完成状态，恢复时跳过已经提交结果的分片。 |
+| 每个新项目都要重新解释保存、恢复、提交的细节 | 在 agent 中安装一次 skill，让它按同一流程适配各项目的任务。 |
+| 换了开发机器，或结束了 agent 会话 | 已提交的任务由远程服务托管；新机器连接同一服务后继续查看和操作。 |
+
+省掉重复计算和手工恢复，让你更容易选择价格更低、但随时可能被收回的资源。
+
+**续跑需要任务代码配合：** 复用训练 checkpoint，或记录已完成分片；没有恢复能力就先补齐。
+进度必须保存在临时 GPU 之外。仅安装 skill 不会让任意程序自动获得续跑能力。
+
+## 从你的第一个任务开始
+
+安装后，把任务代码交给 agent，例如：
+
+> 用 gpu-resume 准备这个模型评测任务。我想用临时 GPU，资源回收后可以等下一张。
+> 已完成的数据不要重跑，允许重算最近几分钟。先检查怎样拆分和保存进度，再验证能否恢复。
+
+**提交前需准备远程 SkyPilot 服务、已接入的 GPU 和独立持久存储，团队可共享这些配置。**
+服务部署见 [SkyPilot 官方文档](https://docs.skypilot.ai/en/stable/reference/api-server/api-server.html)。
 
 ## 安装
 
@@ -32,25 +54,12 @@ git clone https://github.com/Protocol-zero-0/gpu-resume-skill.git ~/work/gpu-res
 cd ~/work/gpu-resume-skill
 python3 scripts/install.py
 gpu-resume self-test
-gpu-resume doctor
 ```
 
-安装脚本会固定 SkyPilot 客户端版本，并把两个 skill 链接到
-`~/.agents/skills` 和 `~/.claude/skills`。安装后请保留仓库所在目录；
-如果找不到命令，将 `~/.local/bin` 加入 `PATH`。skill 会在下一轮对话或新会话中被发现。
-遇到已有的同名文件时，安装脚本会保留它们并停止覆盖。
+安装固定版本的 SkyPilot 客户端和两个 skill，供下一轮对话或新会话使用。
+请保留仓库目录，并将 `~/.local/bin` 加入 `PATH`。安装不会申请 GPU 或创建远程服务。
 
-**还没有 GPU，也可以先安装。** `self-test` 在本地 CPU 上验证恢复流程；
-连接可用的远程 API 服务之前，`doctor` 会显示 `setup_required`，退出码为 2。
-
-## 使用
-
-直接告诉 agent：
-
-> 用 gpu-resume 把这个任务接到可中断 GPU 上。优先使用任务框架已有的 checkpoint 能力，
-> 连接共享服务，说明每次中断最多需要重算多少工作。
-
-已有共享的 SkyPilot 服务后，也可以使用命令行：
+有远程服务后，连接并提交任务：
 
 ```bash
 gpu-resume connect https://YOUR_API_SERVER
@@ -60,38 +69,32 @@ gpu-resume queue
 gpu-resume logs JOB_ID --tail 100 --no-follow
 ```
 
-从 [Spot 模板](skills/gpu-resume/templates/spot-demo.yaml)或
-[SSH 资源池模板](skills/gpu-resume/templates/ssh-demo.yaml)开始，提交前替换示例中的
-GPU 型号、存储前缀和资源池名称。示例运行计数器，用于验证进度保存与恢复；
-真实训练应使用框架自身的保存、加载接口，包含 optimizer、随机数状态和数据读取位置。
+尚未配置远程服务时，`doctor` 会显示 `setup_required`，退出码为 2；本地 `self-test` 仍然可用。
 
-**checkpoint 必须保存在临时 GPU 机器之外。** 示例支持持久目录，或已有 S3 bucket
-中的独立任务前缀。使用本地目录做演示，不代表 GPU 实例上的临时磁盘能保留数据。
-远端任务需要具备存储访问权限；安装脚本不会创建 bucket。
-示例中每个前缀只允许一个写入者，不同任务使用不同前缀。
+## 先验证恢复，再跑长任务
 
-## 已验证的范围
+提供 [Spot](skills/gpu-resume/templates/spot-demo.yaml)和
+[SSH 资源池](skills/gpu-resume/templates/ssh-demo.yaml)模板；替换 GPU、资源池与存储位置后使用。
+计数器示例验证进度保存，不执行模型训练。
 
-`gpu-resume self-test` 会在第 27 步强制杀死一个真实 CPU 进程，新进程从已保存的
-第 20 步继续，直到结果正确完成；完成后再重试一次，检查最终结果是否保持一致。
+本地 CPU 强制中断后续跑已验证；真实 GPU 更换、远程服务恢复与 S3 访问尚待实机验证。
+首次接入请验证中断恢复，训练任务还需恢复 optimizer、随机数状态和数据位置。
 
-这验证了示例在本地的 checkpoint 逻辑。GPU 更换、远程调度服务恢复、S3 连通性，
-以及具体训练框架的状态是否保存完整，仍需在实际基础设施上做一次中断恢复验证。
+## 为什么保留 Python
 
-## 跟随上游更新
+skill 主体是 Markdown。辅助脚本调用 [SkyPilot 官方 Python 客户端](https://github.com/skypilot-org/skypilot/blob/v0.14.0/setup.py)，
+沿用 Python 可减少目标使用者的安装负担。
+
+TypeScript 可以实现同样功能，但当前 CLI 方案下仍需 Python 客户端，并新增 Node.js。
+纯 `npx` 分发或 Web 界面可考虑 TypeScript 直接调用远程 API；当前保留 Python，减少运行时依赖。
+
+## 更新与维护
 
 ```bash
 gpu-resume check-updates
 ```
 
-GitHub 工作流每周检查上游发布版本，并在运行摘要中记录结果，不会自动修改安装。
-升级时先评估新版本，更新[版本记录](skills/gpu-resume/upstream.lock.json)，
-验证客户端与服务端兼容性、任务恢复能力，再切换版本。
-保留前一份版本记录和部署状态以便回退，避免直接把上游主分支拉进正在运行的环境。
+复用 [SkyPilot](https://github.com/skypilot-org/skypilot) 和
+[官方 skill](https://github.com/skypilot-org/skypilot/tree/v0.14.0/agent/skills/skypilot) 管理资源；本项目维护任务恢复流程。
 
----
-
-基于 [SkyPilot](https://github.com/skypilot-org/skypilot) 及其
-[官方 agent skill](https://github.com/skypilot-org/skypilot/tree/v0.14.0/agent/skills/skypilot)。
-相关文档：[托管任务与恢复](https://docs.skypilot.ai/en/v0.14.0/examples/managed-jobs.html) ·
-[API 服务部署](https://docs.skypilot.ai/en/stable/reference/api-server/api-server.html)。
+每周检查上游版本，不自动升级。更新[版本记录](skills/gpu-resume/upstream.lock.json)前验证兼容性与恢复能力，保留旧版本以便回退。
