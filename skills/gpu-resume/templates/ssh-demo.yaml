@@ -1,0 +1,12 @@
+# Run from the repository root. Replace the pool, GPU, and storage prefix first.
+name: resume-demo
+resources:
+  infra: ssh/YOUR_POOL
+  accelerators: L4:1
+workdir: ./skills/gpu-resume/examples
+envs:
+  STATE_URI: s3://YOUR_BUCKET/YOUR_UNIQUE_JOB_KEY
+setup: |
+  python -m pip install boto3
+run: |
+  python counter.py --state-uri "$STATE_URI" --steps 1000 --save-every 10 --delay 1

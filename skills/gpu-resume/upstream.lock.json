@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/skypilot-org/skypilot.git",
+  "tag": "v0.14.0",
+  "commit": "7b62fd814e21aa9ab17d0c60c10ffb6f6aa1250e",
+  "client_requirement": "skypilot[remote]==0.14.0",
+  "skill_path": "agent/skills/skypilot"
+}
