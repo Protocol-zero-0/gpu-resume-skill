@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.zh.svg" alt="GPU Resume：GPU 中断，任务接着跑" width="880">
+  <img src="docs/hero.png" alt="GPU Resume：面向 AI Agent 的 GPU 任务恢复层" width="880">
 </p>
 
 <p align="center"><strong>简体中文</strong> · <a href="README.en.md">English</a></p>
@@ -9,9 +9,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-cbd5e1" alt="Apache 2.0 许可证"></a>
 </p>
 
-# GPU Resume · GPU 中断，任务接着跑
+# GPU Resume · 让长任务跨越 GPU 中断
 
-**面向 AI Agent 的 GPU 断点续跑工作流，基于 SkyPilot。**
+**面向 AI Agent 的 GPU 任务恢复层，基于 SkyPilot。**
 
 一次长实验，不该随着一台机器的退出而从头开始。
 GPU Resume 将应用的 checkpoint、持久存储与资源重新调度连接起来：GPU 被回收后，等待可用资源，从已保存的进度继续。
@@ -21,16 +21,11 @@ GPU Resume 将应用的 checkpoint、持久存储与资源重新调度连接起�
 ## 从重启机器，到恢复任务
 
 SkyPilot 负责资源调度与 Managed Jobs 恢复；应用负责知道自己算到了哪里。
-GPU Resume 为 Agent 提供贯穿两者的工作流：检查代码、补齐恢复路径、验证中断行为，再提交任务。
+GPU Resume 连接应用状态与算力调度，由 Agent 完成恢复适配：检查代码、补齐恢复路径、验证中断行为，再提交任务。
 
-```text
-任务代码 → Agent + GPU Resume → 可恢复任务 → SkyPilot
-                                  │              │
-                           checkpoint / 分片     GPU A
-                                  │              ↓ 中断
-                              持久存储 ───────→ GPU B
-                                              读取进度，继续
-```
+<p align="center">
+  <img src="docs/architecture.png" alt="GPU 任务恢复架构：Agent 通过 GPU Resume 适配任务，SkyPilot 调度 GPU，GPU A 保存 checkpoint 到持久存储，GPU B 在资源中断后读取状态继续执行。" width="880">
+</p>
 
 | 任务 | 恢复方式 |
 | --- | --- |
@@ -42,7 +37,7 @@ GPU Resume 为 Agent 提供贯穿两者的工作流：检查代码、补齐恢�
 
 ## 接入你的 Agent
 
-工作流以 Markdown skill 提供，操作通过 `gpu-resume` CLI 完成，不绑定特定 Agent。
+恢复契约与操作指令以 Markdown skill 提供，操作通过 `gpu-resume` CLI 完成，不绑定特定 Agent。
 支持读取指令和调用终端的 Agent，可加载 [SKILL.md](skills/gpu-resume/SKILL.md)；自建 Agent 可将 CLI 封装为工具调用。
 安装器提供 `~/.agents/skills` 和 `~/.claude/skills` 入口，其他运行时按其技能加载方式接入。
 

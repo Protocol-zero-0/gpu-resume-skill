@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.svg" alt="GPU Resume: checkpoint recovery for interruptible GPU jobs" width="880">
+  <img src="docs/hero.png" alt="GPU Resume: checkpoint recovery for interruptible GPU jobs" width="880">
 </p>
 
 <p align="center"><a href="README.md">简体中文</a> · <strong>English</strong></p>
@@ -9,9 +9,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-cbd5e1" alt="Apache 2.0 license"></a>
 </p>
 
-# GPU Resume · Interrupted GPU. Resumable work.
+# GPU Resume · Long-running compute. Beyond interruptions.
 
-**A GPU checkpoint and recovery workflow for AI agents, powered by SkyPilot.**
+**A GPU task recovery layer for AI agents, powered by SkyPilot.**
 
 A long experiment should outlive the machine running it.
 GPU Resume connects application checkpoints, persistent storage, and resource rescheduling: when a GPU is reclaimed, the job waits for available resources and resumes from saved progress.
@@ -21,16 +21,11 @@ For LLM fine-tuning, model evaluation, and batch inference on Spot GPUs and temp
 ## From restarting machines to recovering work
 
 SkyPilot handles resource scheduling and Managed Jobs recovery. The application tracks how far it has progressed.
-GPU Resume gives agents a workflow across both layers: inspect the code, add the recovery path, verify interruption behavior, then submit the job.
+GPU Resume connects application state with compute orchestration. Agents inspect the code, adapt its recovery path, verify interruption behavior, and submit the job.
 
-```text
-Workload → Agent + GPU Resume → Resumable job → SkyPilot
-                                   │             │
-                           checkpoints / shards  GPU A
-                                   │             ↓ preemption
-                           persistent storage → GPU B
-                                               restore & resume
-```
+<p align="center">
+  <img src="docs/architecture.png" alt="GPU checkpoint recovery architecture: AI Agent and GPU Resume prepare the job, SkyPilot schedules workers, GPU A commits durable progress, and GPU B restores state after preemption." width="880">
+</p>
 
 | Workload | Recovery path |
 | --- | --- |
@@ -42,7 +37,7 @@ Workload → Agent + GPU Resume → Resumable job → SkyPilot
 
 ## Bring your agent
 
-The workflow is a Markdown skill; operations use the `gpu-resume` CLI. Neither interface is tied to a particular agent.
+Recovery contracts and operating instructions are delivered as a Markdown skill; operations use the `gpu-resume` CLI. Neither interface is tied to a particular agent.
 Agents that can read instructions and execute terminal commands can load [SKILL.md](skills/gpu-resume/SKILL.md). Custom agents can expose the CLI through tool calling.
 The installer provides entries in `~/.agents/skills` and `~/.claude/skills`; other runtimes can use their own skill-loading mechanism.
 
